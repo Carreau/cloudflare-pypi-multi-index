@@ -1,31 +1,17 @@
-## Template: worker-router
+## A virtual pypi simple index for couldflare worker
 
 [![Deploy with Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/workers-sdk/tree/main/templates/worker-router)
 
-This template demonstrates using the [`itty-router`](https://github.com/kwhitley/itty-router) package to add routing to your Cloudflare Workers.
 
-[`index.js`](https://github.com/cloudflare/worker-template-router/blob/master/index.js) is the content of the Workers script.
+## local dev
 
-## Setup
-
-To create a `my-project` directory using this template, run:
 
 ```sh
-$ npx wrangler generate my-project worker
-# or
-$ yarn wrangler generate my-project worker
-# or
-$ pnpm wrangler generate my-project worker
+npx wrangler dev
 ```
 
-Before publishing your code you need to edit `wrangler.toml` file and add your Cloudflare `account_id` - more information about configuring and publishing your code can be found [in the documentation](https://developers.cloudflare.com/workers/learning/getting-started).
-
-Once you are ready, you can publish your code by running the following command:
+Publish
 
 ```sh
-$ npm run deploy
-# or
-$ yarn run deploy
-# or
-$ pnpm run deploy
+$ npx wrangler deploy
 ```

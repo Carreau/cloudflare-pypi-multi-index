@@ -1,20 +1,23 @@
 import { Router } from 'itty-router';
 
-const PYPI_URL = "https://pypi.org/simple/";
+const PYPI_URL = 'https://pypi.org/simple/';
 const NIGHTLY_MIRROR = [
-    {
-        mirror: "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple/",
-        root: "https://pypi.anaconda.org"
-    }
+	{
+		mirror: 'https://pypi.anaconda.org/scientific-python-nightly-wheels/simple/',
+		root: 'https://pypi.anaconda.org',
+	},
 ];
 // Create a new router
 const router = Router();
 
-/*
-Our index route, a simple hello world.
-*/
 router.get('/', () => {
-	return new Response('Hello, world! This is the root page of your Worker template.');
+	return new Response('See <a href="/nightly/">/nightly/</a>');
+});
+
+router.get('/nightly/', () => {
+	return new Response(
+		'A virtual PyPI index for nightly - pip install --index-url URL --pre --upgrade PACKAGES'
+	);
 });
 
 /*
@@ -23,75 +26,74 @@ URL.
 
 Try visit /example/hello and see the response.
 */
-router.get('/:package', async ({ params }) => {
+router.get('/nightly/:package', async ({ params }) => {
 	// Decode text like "Hello%20world" into "Hello world"
 	let input = decodeURIComponent(params.package);
 
 	return await handleSimple(params.package);
 
-	const response = await fetch(PYPI_URL+input);
-  const body = await response.text();
-  return new Response(body, {
-      headers: { 'Content-Type': 'text/html' }
-  });
-
+	const response = await fetch(PYPI_URL + input);
+	const body = await response.text();
+	return new Response(body, {
+		headers: { 'Content-Type': 'text/html' },
+	});
 });
 
-
 async function handleSimple(packageName) {
-    let fixedNightly = [];
-		if (packageName.endsWith('.ico') ){
-			return
-		}
-    for (const { mirror, root } of NIGHTLY_MIRROR) {
-				const url = `${mirror}${packageName}`
-			  console.log('fetching', url)
+	let fixedNightly = [];
+	let tmp = [];
+	if (packageName.endsWith('.ico')) {
+		return;
+	}
 
-        const mirrorResponse = await fetch(url);
-        const mirrorBody = await mirrorResponse.text();
+	console.log('!!fixed nightly', fixedNightly);
 
-        const rewriter = new HTMLRewriter()
-            .on('a', {
-                element(element) {
-                    const href = element.getAttribute('href');
+	const pypiResponse = await fetch(`${PYPI_URL}${packageName}`);
+	const pypiBody = await pypiResponse.text();
+	const source_rewriter = new HTMLRewriter().on('body', {
+		async element(outer_element) {
+			console.log('Source body:', outer_element);
+			for (const { mirror, root } of NIGHTLY_MIRROR) {
+				const url = `${mirror}${packageName}`;
+				console.log('fetching', url);
 
-										console.log('element', element, href)
-                    if (href && href.startsWith('/')) {
-												const newHref = root + href;
-												let linkHtml = `<a href="${newHref}">`;
-                        element.setInnerContent(innerContent => {
-														console.log('inner contnetn', innerContent)
-                            linkHtml += innerContent +'Dev debug';
-                        });
-                        element.onEndTag(tag => {
-                            linkHtml += 'Dev debug</a>';
-                            fixedNightly.push(linkHtml);
-                        });
-                        element.setAttribute('href', root + href);
+				const mirrorResponse = await fetch(url);
+				const mirrorBody = await mirrorResponse.text();
 
+				const rewriter = new HTMLRewriter().on('a', {
+					element(inner_element) {
+						const href = inner_element.getAttribute('href');
 
-                        //fixedNightly.push(element);
-                        // Push the modified link HTML to fixedNightly array
+						console.log('inner_element', inner_element, href, `${inner_element}`);
 
-                    }
-                }
-            });
-        await rewriter.transform(new Response(mirrorBody)).text();
-    }
+						if (href && href.startsWith('/')) {
+							const newHref = root + href;
+							const parts = href.split('/');
+							const lastPart = parts[parts.length - 1];
+							const linkHtml = `<a href="${newHref}">${lastPart}</a>`;
+							outer_element.append(linkHtml, { html: Boolean });
+						}
+					},
+					text(text) {
+						console.log('handler got text', text);
+					},
+				});
+				await rewriter.transform(new Response(mirrorBody)).text();
+			}
+		},
+	});
 
-		console.log('!!fixed nightly',fixedNightly);
+	const res = await source_rewriter.transform(new Response(pypiBody)).text();
 
-    const pypiResponse = await fetch(`${PYPI_URL}${packageName}`);
-    const pypiBody = await pypiResponse.text();
-    let combinedBody = pypiBody;
+	//	let combinedBody = pypiBody;
+	//
+	//	for (const nightlyElement of fixedNightly) {
+	//		combinedBody = combinedBody.replace('</body>', nightlyElement + '</body>');
+	//	}
 
-    for (const nightlyElement of fixedNightly) {
-        combinedBody = combinedBody.replace('</body>', nightlyElement + '</body>');
-    }
-
-    return new Response(combinedBody, {
-        headers: { 'Content-Type': 'text/html' }
-    });
+	return new Response(res, {
+		headers: { 'Content-Type': 'text/html' },
+	});
 }
 /*
 This is the last route we define, it will match anything that hasn't hit a route we've defined
